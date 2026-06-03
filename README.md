@@ -3,7 +3,6 @@
 An end-to-end retail analytics pipeline built for Purplle Tech Challenge 2026.
 
 ## Overview
-
 This system processes CCTV footage from retail stores and generates real-time business intelligence using computer vision, event generation, and analytics APIs.
 
 The pipeline performs:
@@ -17,6 +16,10 @@ The pipeline performs:
 - Basic anomaly detection
 
 ---
+# Demo
+
+Swagger API Docs:
+http://127.0.0.1:8000/docs
 
 # Architecture
 
