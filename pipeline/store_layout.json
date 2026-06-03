@@ -1,0 +1,77 @@
+{
+  "store_id": "STORE_BLR_002",
+  "store_name": "Purplle Store 2",
+  "city": "Bangalore",
+  "open_hours": { "open": "10:00", "close": "21:00" },
+  "cameras": [
+    { "camera_id": "CAM_ENTRY_01",  "type": "entry",   "description": "Main entrance entry/exit threshold — left door" },
+    { "camera_id": "CAM_ENTRY_02",  "type": "entry",   "description": "Main entrance entry/exit threshold — right door" },
+    { "camera_id": "CAM_FLOOR_01",  "type": "floor",   "description": "Main floor overview — gondola and wall units" },
+    { "camera_id": "CAM_BILLING_01","type": "billing", "description": "Cash counter and billing queue area" }
+  ],
+  "zones": [
+    {
+      "zone_id": "ZONE_ENTRY",
+      "zone_name": "Entry / Exit",
+      "zone_type": "ENTRY",
+      "sku_zone": null,
+      "is_revenue_zone": false,
+      "camera_ids": ["CAM_ENTRY_01", "CAM_ENTRY_02"],
+      "bbox": { "x1": 0.35, "y1": 0.80, "x2": 0.65, "y2": 1.0 }
+    },
+    {
+      "zone_id": "ZONE_WALL_LEFT",
+      "zone_name": "Left Wall Units",
+      "zone_type": "SHELF",
+      "sku_zone": "SKINCARE",
+      "is_revenue_zone": true,
+      "camera_ids": ["CAM_FLOOR_01"],
+      "bbox": { "x1": 0.0, "y1": 0.1, "x2": 0.15, "y2": 0.85 }
+    },
+    {
+      "zone_id": "ZONE_WALL_BACK",
+      "zone_name": "Back Wall Units",
+      "zone_type": "SHELF",
+      "sku_zone": "HAIRCARE",
+      "is_revenue_zone": true,
+      "camera_ids": ["CAM_FLOOR_01"],
+      "bbox": { "x1": 0.05, "y1": 0.05, "x2": 0.75, "y2": 0.18 }
+    },
+    {
+      "zone_id": "ZONE_WALL_RIGHT",
+      "zone_name": "Right Wall Units",
+      "zone_type": "SHELF",
+      "sku_zone": "FRAGRANCE",
+      "is_revenue_zone": true,
+      "camera_ids": ["CAM_FLOOR_01"],
+      "bbox": { "x1": 0.85, "y1": 0.1, "x2": 1.0, "y2": 0.85 }
+    },
+    {
+      "zone_id": "ZONE_GONDOLA_CENTER",
+      "zone_name": "Center Gondola",
+      "zone_type": "DISPLAY",
+      "sku_zone": "MAKEUP",
+      "is_revenue_zone": true,
+      "camera_ids": ["CAM_FLOOR_01"],
+      "bbox": { "x1": 0.18, "y1": 0.35, "x2": 0.48, "y2": 0.78 }
+    },
+    {
+      "zone_id": "ZONE_MAKEUP_STUDIO",
+      "zone_name": "Makeup Studio / Maker Point",
+      "zone_type": "EXPERIENCE",
+      "sku_zone": "MAKEUP",
+      "is_revenue_zone": true,
+      "camera_ids": ["CAM_FLOOR_01"],
+      "bbox": { "x1": 0.60, "y1": 0.40, "x2": 0.85, "y2": 0.78 }
+    },
+    {
+      "zone_id": "ZONE_BILLING",
+      "zone_name": "Billing Counter Queue",
+      "zone_type": "BILLING",
+      "sku_zone": null,
+      "is_revenue_zone": false,
+      "camera_ids": ["CAM_BILLING_01"],
+      "bbox": { "x1": 0.38, "y1": 0.18, "x2": 0.62, "y2": 0.40 }
+    }
+  ]
+}
