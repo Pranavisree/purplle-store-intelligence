@@ -166,3 +166,18 @@ def anomalies():
     return {
         "anomalies": anomalies_found
     }
+    
+    
+@app.post("/events/ingest")
+def ingest_events():
+
+    events = []
+
+    with open(EVENTS_FILE, "r") as f:
+        for line in f:
+            events.append(json.loads(line))
+
+    return {
+        "status": "success",
+        "events_ingested": len(events)
+    }
