@@ -11,7 +11,10 @@ filelock==3.29.1
 fonttools==4.63.0
 fsspec==2026.4.0
 h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
 idna==3.18
+iniconfig==2.3.0
 Jinja2==3.1.6
 kiwisolver==1.5.0
 MarkupSafe==3.0.3
@@ -23,12 +26,15 @@ opencv-python==4.13.0.92
 packaging==26.2
 pandas==3.0.3
 pillow==12.2.0
+pluggy==1.6.0
 polars==1.41.2
 polars-runtime-32==1.41.2
 psutil==7.2.2
 pydantic==2.13.4
 pydantic_core==2.46.4
+Pygments==2.20.0
 pyparsing==3.3.2
+pytest==9.0.3
 python-dateutil==2.9.0.post0
 python-multipart==0.0.30
 PyYAML==6.0.3
