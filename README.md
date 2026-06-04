@@ -1,60 +1,94 @@
 # AI-Powered Store Intelligence System
 
-An end-to-end retail analytics pipeline built for Purplle Tech Challenge 2026.
+An end-to-end retail analytics pipeline built for the Purplle Tech Challenge 2026 using computer vision, event-driven analytics, and FastAPI.
 
-## Overview
-This system processes CCTV footage from retail stores and generates real-time business intelligence using computer vision, event generation, and analytics APIs.
+---
+
+# Overview
+
+This system processes retail CCTV footage and converts raw video streams into structured retail analytics events.
 
 The pipeline performs:
 
 - Person detection using YOLOv8
 - Multi-object tracking
-- Zone-based event generation
-- Retail analytics APIs
-- Funnel analysis
-- Heatmap generation
+- Entry and exit detection
+- Zone-based customer movement analysis
+- Billing queue monitoring
+- Retail analytics generation
+- Funnel analytics
+- Heatmap analytics
 - Basic anomaly detection
 
+The generated analytics are exposed through production-style FastAPI endpoints.
+
 ---
-# Demo
 
-Swagger API Docs:
-http://127.0.0.1:8000/docs
+# System Architecture
 
-# Architecture
-
-CCTV Videos
-↓
-YOLOv8 Detection
-↓
-Tracking Pipeline
-↓
-Event Generation
-↓
+```text
+CCTV Video Streams
+        ↓
+YOLOv8 Person Detection
+        ↓
+Multi-Object Tracking
+        ↓
+Zone/Event Generation
+        ↓
 events_out.jsonl
-↓
-FastAPI Analytics APIs
+        ↓
+FastAPI Analytics Layer
+        ↓
+Retail Intelligence APIs
+```
 
 ---
 
 # Features
 
-## Detection Pipeline
-- Person detection using YOLOv8
+## Detection & Tracking Pipeline
+
+- YOLOv8-based person detection
 - Multi-object tracking
-- Entry/Exit detection
-- Zone detection
-- Billing queue detection
+- Entry/Exit event generation
+- Zone transition tracking
+- Billing queue monitoring
+- JSONL event streaming
+
+---
 
 ## Analytics APIs
-- /metrics
-- /funnel
-- /heatmap
-- /anomalies
-- /health
 
-## Anomaly Detection
-- Queue spike detection
+| Endpoint | Description |
+|---|---|
+| `/health` | Health check |
+| `/events` | Raw event stream |
+| `/events/ingest` | Event ingestion API |
+| `/stores/{store_id}/metrics` | Store metrics |
+| `/stores/{store_id}/funnel` | Visitor funnel analytics |
+| `/stores/{store_id}/heatmap` | Zone popularity analytics |
+| `/stores/{store_id}/anomalies` | Retail anomaly detection |
+
+---
+
+## Analytics Capabilities
+
+### Store Metrics
+- Unique visitors
+- Entry count
+- Conversion rate
+- Billing queue depth
+
+### Funnel Analytics
+- Entry → Zone → Billing progression
+- Funnel drop-off calculation
+
+### Heatmap Analytics
+- Zone popularity analysis
+- Customer movement distribution
+
+### Anomaly Detection
+- Billing queue spikes
 - Low traffic zone detection
 
 ---
@@ -62,9 +96,11 @@ FastAPI Analytics APIs
 # Tech Stack
 
 - Python
+- FastAPI
 - YOLOv8
 - OpenCV
-- FastAPI
+- PyTest
+- Docker
 - JSONL Event Streaming
 
 ---
@@ -74,31 +110,40 @@ FastAPI Analytics APIs
 ```text
 store-intelligence/
 │
-├── pipeline/
-├── app/
-├── data/
-├── output/
-└── README.md
+├── app/                  # FastAPI application
+├── pipeline/             # Detection & tracking pipeline
+├── tests/                # API tests
+├── data/                 # Sample input data
+├── output/               # Generated event logs
+├── Dockerfile
+├── docker-compose.yml
+├── README.md
+├── DESIGN.md
+└── CHOICES.md
 ```
 
 ---
 
 # Setup Instructions
 
-## Create virtual environment
+## 1. Create Virtual Environment
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-## Install dependencies
+---
+
+## 2. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Run detection pipeline
+---
+
+## 3. Run Detection Pipeline
 
 ```bash
 python pipeline/detect.py \
@@ -116,24 +161,57 @@ CAM_BILLING_01 \
 --output output/events_out.jsonl
 ```
 
-## Run API server
+---
+
+## 4. Run FastAPI Server
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
+Swagger API docs:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
 ---
 
-# API Endpoints
+# Docker Setup
 
-| Endpoint | Description |
-|---|---|
-| /metrics | Store metrics |
-| /funnel | Visitor funnel |
-| /heatmap | Zone popularity |
-| /anomalies | Retail anomaly detection |
-| /events | Raw events |
-| /health | Health check |
+Build and run using Docker:
+
+```bash
+docker compose up --build
+```
+
+---
+
+# Testing
+
+Run API tests using PyTest:
+
+```bash
+python -m pytest
+```
+
+---
+
+# AI-Assisted Engineering Decisions
+
+This project intentionally evaluated and challenged AI-generated recommendations during development.
+
+Key decisions are documented in:
+
+- `DESIGN.md`
+- `CHOICES.md`
+
+These documents explain:
+- Model selection tradeoffs
+- API architecture choices
+- Storage design decisions
+- Tracking pipeline decisions
+- Production vs prototype tradeoffs
 
 ---
 
@@ -141,9 +219,10 @@ uvicorn app.main:app --reload
 
 - Cross-camera re-identification
 - Real-time Kafka streaming
-- Streamlit dashboard
-- Better anomaly detection
+- PostgreSQL persistence layer
+- Streamlit analytics dashboard
 - GPU optimization
+- Advanced anomaly detection
 
 ---
 
