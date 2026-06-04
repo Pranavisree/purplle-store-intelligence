@@ -1,183 +1,145 @@
-from fastapi import FastAPI
-import json
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import List, Optional
+import uuid, json
+from datetime import datetime
 
 app = FastAPI()
 
-EVENTS_FILE = "output/events_out.jsonl"
+# In-memory store — replace with SQLite for production
+event_store = {}  # event_id -> event dict
 
+class EventIn(BaseModel):
+    event_id: str
+    store_id: str
+    camera_id: str
+    visitor_id: str
+    event_type: str
+    timestamp: str
+    zone_id: Optional[str] = None
+    dwell_ms: Optional[int] = 0
+    is_staff: bool = False
+    confidence: float
+    metadata: Optional[dict] = {}
 
-def load_events():
-    events = []
+class IngestRequest(BaseModel):
+    events: List[EventIn]
 
-    try:
-        with open(EVENTS_FILE, "r") as f:
-            for line in f:
-                events.append(json.loads(line))
-    except FileNotFoundError:
-        return []
+@app.post("/events/ingest")
+def ingest_events(payload: IngestRequest):
+    ingested = 0
+    duplicates = 0
+    errors = []
+    
+    for event in payload.events:
+        if event.event_id in event_store:
+            duplicates += 1
+            continue
+        event_store[event.event_id] = event.dict()
+        ingested += 1
+    
+    return {
+        "ingested": ingested,
+        "duplicates": duplicates,
+        "errors": errors
+    }
 
-    return events
+@app.get("/stores/{store_id}/metrics")
+def metrics(store_id: str):
+    events = [e for e in event_store.values() 
+              if e["store_id"] == store_id and not e["is_staff"]]
+    
+    visitors = set(e["visitor_id"] for e in events)
+    entries = [e for e in events if e["event_type"] == "ENTRY"]
+    billing = set(e["visitor_id"] for e in events 
+                  if e["event_type"] == "BILLING_QUEUE_JOIN")
+    
+    conversion = len(billing) / len(visitors) if visitors else 0
+    
+    return {
+        "store_id": store_id,
+        "unique_visitors": len(visitors),
+        "conversion_rate": round(conversion, 3),
+        "entry_count": len(entries),
+        "billing_queue_depth": sum(
+            e.get("metadata", {}).get("queue_depth", 0) or 0 
+            for e in events if e["event_type"] == "BILLING_QUEUE_JOIN"
+        )
+    }
 
+@app.get("/stores/{store_id}/funnel")
+def funnel(store_id: str):
+    events = [e for e in event_store.values()
+              if e["store_id"] == store_id and not e["is_staff"]]
+    
+    sessions = {}
+    for e in events:
+        vid = e["visitor_id"]
+        if vid not in sessions:
+            sessions[vid] = {"entry": False, "zone": False, "billing": False}
+        if e["event_type"] == "ENTRY": sessions[vid]["entry"] = True
+        if e["event_type"] == "ZONE_ENTER": sessions[vid]["zone"] = True
+        if e["event_type"] == "BILLING_QUEUE_JOIN": sessions[vid]["billing"] = True
+    
+    total = len(sessions)
+    entered = sum(1 for s in sessions.values() if s["entry"])
+    zoned = sum(1 for s in sessions.values() if s["zone"])
+    billed = sum(1 for s in sessions.values() if s["billing"])
+    
+    return {
+        "store_id": store_id,
+        "entry": entered,
+        "zone_visit": zoned,
+        "billing_queue": billed,
+        "entry_to_zone_dropoff": round(1 - zoned/entered, 3) if entered else 0,
+        "zone_to_billing_dropoff": round(1 - billed/zoned, 3) if zoned else 0,
+    }
 
-@app.get("/")
-def home():
-    return {"message": "Store Intelligence API Running"}
+@app.get("/stores/{store_id}/heatmap")
+def heatmap(store_id: str):
+    events = [e for e in event_store.values()
+              if e["store_id"] == store_id 
+              and e["event_type"] == "ZONE_ENTER"
+              and not e["is_staff"]]
+    
+    zone_counts = {}
+    for e in events:
+        z = e.get("zone_id", "UNKNOWN")
+        zone_counts[z] = zone_counts.get(z, 0) + 1
+    
+    max_count = max(zone_counts.values(), default=1)
+    normalized = {z: round(c/max_count * 100) for z, c in zone_counts.items()}
+    total_sessions = len(set(e["visitor_id"] for e in event_store.values()
+                             if e["store_id"] == store_id))
+    
+    return {
+        "store_id": store_id,
+        "zones": normalized,
+        "data_confidence": "LOW" if total_sessions < 20 else "OK"
+    }
 
+@app.get("/stores/{store_id}/anomalies")
+def anomalies(store_id: str):
+    events = [e for e in event_store.values() if e["store_id"] == store_id]
+    found = []
+    
+    billing_events = [e for e in events if e["event_type"] == "BILLING_QUEUE_JOIN"]
+    if len(billing_events) > 10:
+        found.append({
+            "type": "BILLING_QUEUE_SPIKE",
+            "severity": "WARN",
+            "suggested_action": "Deploy additional staff to billing counter"
+        })
+    
+    return {"store_id": store_id, "anomalies": found}
 
 @app.get("/health")
 def health():
-    events = load_events()
-
+    last_ts = None
+    if event_store:
+        last_ts = max(e["timestamp"] for e in event_store.values())
     return {
         "status": "healthy",
-        "total_events": len(events)
-    }
-
-
-@app.get("/events")
-def get_events():
-    return load_events()
-
-
-@app.get("/metrics")
-def metrics():
-    events = load_events()
-
-    unique_visitors = set()
-    entry_count = 0
-    exit_count = 0
-
-    for e in events:
-        visitor_id = e.get("visitor_id")
-
-        if visitor_id:
-            unique_visitors.add(visitor_id)
-
-        if e.get("event_type") == "ENTRY":
-            entry_count += 1
-
-        if e.get("event_type") == "EXIT":
-            exit_count += 1
-
-    return {
-        "unique_visitors": len(unique_visitors),
-        "entry_events": entry_count,
-        "exit_events": exit_count,
-        "total_events": len(events)
-    }
-    
-@app.get("/funnel")
-def funnel():
-
-    events = load_events()
-
-    visitors = {}
-
-    for e in events:
-
-        vid = e.get("visitor_id")
-
-        if not vid:
-            continue
-
-        if vid not in visitors:
-            visitors[vid] = {
-                "entry": False,
-                "zone": False,
-                "billing": False
-            }
-
-        if e.get("event_type") == "ENTRY":
-            visitors[vid]["entry"] = True
-
-        if e.get("event_type") == "ZONE_ENTER":
-            visitors[vid]["zone"] = True
-
-        if e.get("event_type") == "BILLING_QUEUE_JOIN":
-            visitors[vid]["billing"] = True
-
-    total_entry = sum(v["entry"] for v in visitors.values())
-    total_zone = sum(v["zone"] for v in visitors.values())
-    total_billing = sum(v["billing"] for v in visitors.values())
-
-    return {
-        "entry_stage": total_entry,
-        "zone_stage": total_zone,
-        "billing_stage": total_billing
-    }
-    
-@app.get("/heatmap")
-def heatmap():
-
-    events = load_events()
-
-    zone_counts = {}
-
-    for e in events:
-
-        if e.get("event_type") == "ZONE_ENTER":
-
-            zone = e.get("zone_id", "UNKNOWN")
-
-            if zone not in zone_counts:
-                zone_counts[zone] = 0
-
-            zone_counts[zone] += 1
-
-    return {
-        "zone_heatmap": zone_counts
-    }
-    
-@app.get("/anomalies")
-def anomalies():
-
-    events = load_events()
-
-    zone_counts = {}
-
-    for e in events:
-
-        if e.get("event_type") == "ZONE_ENTER":
-
-            zone = e.get("zone_id", "UNKNOWN")
-
-            zone_counts[zone] = zone_counts.get(zone, 0) + 1
-
-    anomalies_found = []
-
-    # Queue spike detection
-    if zone_counts.get("ZONE_BILLING", 0) > 25:
-
-        anomalies_found.append({
-            "type": "QUEUE_SPIKE",
-            "zone": "ZONE_BILLING",
-            "count": zone_counts["ZONE_BILLING"]
-        })
-
-    # Low traffic detection
-    if zone_counts.get("ZONE_WALL_LEFT", 0) < 3:
-
-        anomalies_found.append({
-            "type": "LOW_TRAFFIC",
-            "zone": "ZONE_WALL_LEFT",
-            "count": zone_counts.get("ZONE_WALL_LEFT", 0)
-        })
-
-    return {
-        "anomalies": anomalies_found
-    }
-    
-    
-@app.post("/events/ingest")
-def ingest_events():
-
-    events = []
-
-    with open(EVENTS_FILE, "r") as f:
-        for line in f:
-            events.append(json.loads(line))
-
-    return {
-        "status": "success",
-        "events_ingested": len(events)
+        "total_events": len(event_store),
+        "last_event_timestamp": last_ts
     }

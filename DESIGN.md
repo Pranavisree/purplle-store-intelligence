@@ -2,9 +2,24 @@
 
 ## Overview
 
-The goal of this project was to build an end-to-end AI-powered Store Intelligence System capable of processing CCTV footage and generating actionable retail analytics.
+The goal of this project was to build an AI-powered Store Intelligence System capable of converting raw CCTV footage into structured retail analytics.
 
-The system was designed with simplicity, modularity, and production-readiness in mind.
+The system combines:
+- computer vision
+- event-driven architecture
+- analytics APIs
+- anomaly detection
+- Dockerized deployment
+
+while remaining lightweight enough to run on CPU-only systems.
+
+The implementation prioritizes:
+- modularity
+- explainability
+- deployment simplicity
+- reproducibility
+
+over enterprise-scale infrastructure complexity.
 
 ---
 
@@ -16,6 +31,8 @@ YOLOv8 Detection
 ↓
 Tracking Pipeline
 ↓
+Zone Classification
+↓
 Event Generation
 ↓
 JSONL Event Stream
@@ -24,138 +41,219 @@ FastAPI Analytics APIs
 
 ---
 
-# Key Design Decisions
+# Pipeline Architecture
 
-## 1. YOLOv8 for Person Detection
+## 1. Detection Layer
 
-YOLOv8 was selected because:
+The detection layer processes CCTV frames using YOLOv8 person detection.
 
-- Fast inference speed
-- Easy integration
-- Strong real-time performance
-- Good balance between accuracy and simplicity
+Responsibilities:
+- detect retail visitors
+- filter non-person objects
+- generate bounding boxes
+- provide confidence scores
 
-The system currently focuses on person detection for visitor analytics.
-
----
-
-# 2. Modular Pipeline Architecture
-
-The project was separated into independent modules:
-
-- detect.py
-- tracker.py
-- emit.py
-- FastAPI backend
-
-This improves:
-- maintainability
-- debugging
-- scalability
-
-Each component can evolve independently.
+The output of this stage becomes the input for tracking and zone analytics.
 
 ---
 
-# 3. Event-Driven Analytics
+# 2. Tracking Layer
 
-Instead of directly coupling analytics with video processing, the system emits structured events into JSONL format.
+The tracking layer assigns temporary visitor identities across sequential frames.
 
-Example events:
+Responsibilities:
+- maintain visitor continuity
+- reduce duplicate detections
+- generate visitor-level analytics
+
+The implementation uses lightweight centroid-style tracking to prioritize:
+- CPU compatibility
+- low operational complexity
+- deterministic debugging behavior
+
+Cross-camera re-identification was intentionally simplified for the prototype.
+
+---
+
+# 3. Zone Classification Layer
+
+Store zones are defined using deterministic polygon boundaries from the provided store layout configuration.
+
+Responsibilities:
+- classify visitor movement across store sections
+- detect zone entry events
+- support heatmap generation
+- support funnel analytics
+
+Zone assignment uses geometric bounding-box overlap calculations instead of AI-based scene understanding models.
+
+---
+
+# 4. Event Generation Layer
+
+The system emits structured retail events into JSONL format.
+
+Generated events include:
 - ENTRY
 - EXIT
 - ZONE_ENTER
 - BILLING_QUEUE_JOIN
 
-Advantages:
-- decoupled architecture
-- replayable analytics
-- easier debugging
-- future streaming compatibility
+The event-driven architecture decouples:
+- video processing
+- analytics APIs
+- downstream reporting
+
+This improves:
+- modularity
+- replayability
+- debugging
+- future scalability
 
 ---
 
-# 4. FastAPI for Analytics APIs
+# 5. Analytics API Layer
 
-FastAPI was chosen because:
+FastAPI exposes analytics endpoints over generated events.
 
-- lightweight
-- fast development
-- automatic Swagger documentation
-- async-ready architecture
+Implemented endpoints:
+- /health
+- /events/ingest
+- /stores/{store_id}/metrics
+- /stores/{store_id}/funnel
+- /stores/{store_id}/heatmap
+- /stores/{store_id}/anomalies
 
-The APIs expose:
-- metrics
-- funnel analysis
-- heatmaps
+The API layer provides:
+- store metrics
+- conversion analytics
+- zone heatmaps
 - anomaly detection
-
----
-
-# 5. Simplified Tracking Strategy
-
-The current implementation uses lightweight per-camera tracking.
-
-Cross-camera re-identification was intentionally simplified to reduce system complexity and improve reliability during hackathon development.
-
-This tradeoff prioritizes:
-- faster implementation
-- easier debugging
-- stable event generation
-
----
-
-# Tradeoffs
-
-| Decision | Benefit | Limitation |
-|---|---|---|
-| YOLOv8 | Fast & simple | No fine-tuning |
-| JSONL events | Easy replay/debugging | Not real-time streaming |
-| Simple tracking | Lightweight | Weak cross-camera identity |
-| FastAPI | Easy APIs | No frontend dashboard |
+- ingestion validation
 
 ---
 
 # Production Readiness Considerations
 
-The system includes:
-- Dockerized deployment
-- Modular architecture
-- Structured event schema
-- API-based analytics
-- Health endpoints
+The project includes several production-oriented design choices:
 
-These choices improve deployability and maintainability.
+## Dockerized Deployment
+The system can run using:
+docker compose up
+
+This reduces setup friction and improves reproducibility across environments.
+
+## Structured Event Schema
+The JSONL schema provides:
+- replayability
+- schema validation
+- deterministic analytics
+- future streaming compatibility
+
+## Health Monitoring
+The API exposes health endpoints to validate:
+- ingestion state
+- event counts
+- pipeline availability
+
+## Automated Tests
+Basic API tests were added using pytest to validate endpoint availability and API correctness.
+
+---
+
+# AI-Assisted Engineering Decisions
+
+AI tools including Claude and ChatGPT were used during development as engineering assistants rather than autonomous code generators.
+
+The tools were primarily used for:
+- comparing architectural alternatives
+- evaluating tracking approaches
+- reviewing deployment strategies
+- refining API structure
+- validating tradeoffs
+
+---
+
+## 1. Tracking Approach
+
+Claude suggested ByteTrack because of stronger identity consistency under occlusion.
+
+I selected lightweight centroid tracking instead because:
+- it is easier to debug
+- it performs reliably on CPU-only systems
+- it introduces fewer dependencies
+- it is simpler to explain during evaluation
+
+The decision prioritized deployment reliability and explainability over advanced re-identification accuracy.
+
+---
+
+## 2. Zone Classification
+
+Claude suggested using a Vision Language Model (VLM) to infer retail zones from visual context.
+
+I rejected this approach and implemented deterministic geometric zone classification instead.
+
+The store cameras use mostly fixed viewpoints, making polygon intersection significantly more efficient and reliable.
+
+Using geometry instead of a VLM:
+- reduces latency dramatically
+- avoids unnecessary inference overhead
+- improves deterministic behavior
+- simplifies debugging
+
+This was a deliberate override of the AI recommendation.
+
+---
+
+## 3. API Architecture
+
+ChatGPT suggested a more complex event-sourcing architecture with separate read models and persistent storage.
+
+I adopted the core event-driven principle but simplified the implementation:
+- JSONL acts as the append-only event stream
+- the API uses lightweight in-memory analytics structures
+
+This reduced infrastructure complexity while preserving replayability and modularity.
 
 ---
 
 # Future Improvements
 
-## Real-Time Streaming
-- Kafka-based event streaming
-- Live event consumers
+Potential future extensions include:
 
 ## Better Tracking
-- Cross-camera re-identification
-- DeepSORT / ByteTrack integration
+- ByteTrack integration
+- DeepSORT integration
+- cross-camera re-identification
 
-## Dashboard
-- Streamlit or React dashboard
-- Real-time monitoring
+## Real-Time Streaming
+- Kafka-based ingestion
+- streaming analytics consumers
+- live event dashboards
 
-## Advanced Analytics
-- Dwell time analysis
-- Queue prediction
-- Conversion analysis
-- Staff analytics
+## Analytics Expansion
+- dwell-time analytics
+- conversion attribution
+- queue prediction
+- staff movement analytics
 
-## Performance
-- GPU optimization
-- Batch inference
-- Frame skipping optimization
+## Performance Optimization
+- GPU acceleration
+- frame skipping
+- batched inference
+- asynchronous ingestion
 
 ---
 
 # Conclusion
 
-This project demonstrates how computer vision, event-driven architecture, and analytics APIs can be combined to build a scalable retail intelligence platform from raw CCTV footage.
+This project demonstrates how computer vision, event-driven architecture, and lightweight analytics APIs can be combined to build a scalable retail intelligence platform from raw CCTV footage.
+
+The implementation intentionally prioritizes:
+- explainability
+- deployment simplicity
+- reproducibility
+- modular architecture
+
+while remaining extensible for future production-scale improvements.
